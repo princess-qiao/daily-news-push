@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 每日国际新闻推送 - 只推送前一天的新闻
-来源: 新华网, Geopolitical Monitor, 寰球经济(ce.cn), 金十数据, Wired, CNN, 半岛电视台
+来源: 新华网, The Diplomat, 寰球经济(ce.cn), 人民网, Wired, CNN, 半岛电视台
 """
 
 import requests
@@ -266,8 +266,8 @@ def fetch_rss(urls, source_name):
 
 
 def fetch_geopolitical():
-    """Geopolitical Monitor — 地缘政治分析"""
-    return fetch_rss(["https://www.geopoliticalmonitor.com/feed/"], "Geopolitical Monitor")
+    """The Diplomat — 亚太地缘政治分析"""
+    return fetch_rss(["https://thediplomat.com/feed/"], "The Diplomat")
 
 
 def fetch_wired():
@@ -516,7 +516,7 @@ def main():
 
     sources = [
         ("新华网",       fetch_xinhua,       False),
-        ("Geopolitical", fetch_geopolitical, True),
+        ("The Diplomat", fetch_geopolitical, True),
         ("寰球经济",     fetch_globalecon,   False),
         ("人民网",       fetch_people,       False),
         ("Wired",       fetch_wired,        True),
