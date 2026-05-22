@@ -334,8 +334,20 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
             r.encoding = "utf-8"
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(r.text, "html.parser")
-            items = []
 
+            def extract_summary(link):
+                """从链接附近的元素提取摘要"""
+                for el in [link.parent, link.find_parent(["h1","h2","h3","h4","dt","li"])]:
+                    if not el:
+                        continue
+                    # 找相邻的 <p>, <div>, <span> 里的描述文字
+                    for sib in el.find_next_siblings():
+                        txt = sib.get_text(strip=True)
+                        if 15 < len(txt) < 200:
+                            return txt[:120]
+                return ""
+
+            items = []
             for link in soup.find_all("a", href=True):
                 href = link["href"]
                 text = link.get_text(strip=True)
@@ -347,7 +359,8 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
                         f"{url.rstrip('/')}/{href.lstrip('/')}"
                     )
                     if match_date_in_url(full_url, date_target):
-                        items.append({"title": text, "url": full_url, "summary": ""})
+                        summary = extract_summary(link)
+                        items.append({"title": text, "url": full_url, "summary": summary})
 
             if len(items) < 5:
                 for link in soup.find_all("a", href=True):
@@ -360,7 +373,8 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
                             f"https:{href}" if href.startswith("//") else
                             f"{url.rstrip('/')}/{href.lstrip('/')}"
                         )
-                        items.append({"title": text, "url": full_url, "summary": ""})
+                        summary = extract_summary(link)
+                        items.append({"title": text, "url": full_url, "summary": summary})
 
             if items:
                 return dedup_and_sort(items)
