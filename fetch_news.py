@@ -441,7 +441,7 @@ def format_message(news_list, source_name):
     yesterday_str = yesterday().strftime("%Y-%m-%d")
     lines = [
         f"# 🌍 国际新闻早报",
-        f"**{today_str}** | 昨日新闻 ({yesterday_str}) | 来源: {source_name}",
+        f"**{today_str}** | 昨日新闻 ({yesterday_str}) | {source_name}",
         "",
         "---",
         ""
@@ -449,11 +449,14 @@ def format_message(news_list, source_name):
     for i, item in enumerate(news_list, 1):
         title = item["title"].replace(" ", "")
         url = item.get("url", "")
+        src = item.get("_source", "")
         summary = item.get("summary", "").strip()
         if url:
             lines.append(f"{i}. [{title}]({url})")
         else:
             lines.append(f"{i}. {title}")
+        if src:
+            lines.append(f"   `{src}`")
         if summary:
             s = summary[:120].replace("\n", " ")
             lines.append(f"   > {s}")
@@ -489,6 +492,10 @@ def main():
         ("网易新闻",    fetch_163,         False),
     ]
 
+    # 每源取2条，多源汇总
+    aggregated = []
+    seen_titles = set()
+
     for name, fetcher, is_rss in sources:
         print(f"[INFO] 尝试 {name}...")
         news = fetcher()
@@ -496,17 +503,29 @@ def main():
             print(f"[INFO] {name} 无结果")
             continue
 
-        # RSS源已经在fetch_rss里做了英文过滤+翻译
-        # 中文源需要做中文关键词过滤
         if not is_rss:
-            filtered = filter_chinese(news)
-            if len(filtered) < 3:
-                print(f"  [筛选] 中文关键词匹配不足, 跳过")
-                continue
-            news = filtered
+            news = filter_chinese(news)
 
-        print(f"[OK] {name} {len(news)} 条")
-        content = format_message(news, name)
+        if not news:
+            print(f"[INFO] {name} 主题匹配不足")
+            continue
+
+        count = 0
+        for item in news:
+            key = item["title"].replace(" ", "")[:30]
+            if key not in seen_titles:
+                seen_titles.add(key)
+                item["_source"] = name  # 标记来源
+                aggregated.append(item)
+                count += 1
+                if count >= 2:
+                    break
+
+        print(f"[OK] {name} 取 {count} 条")
+
+    if aggregated:
+        print(f"[OK] 汇总 {len(aggregated)} 条")
+        content = format_message(aggregated, "多源汇总")
         send_to_wechat("🌍 国际新闻早报（昨日要闻）", content, send_key)
         return
 
