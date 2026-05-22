@@ -418,6 +418,16 @@ def fetch_163():
     )
 
 
+def fetch_stcn():
+    """证券时报头条"""
+    return fetch_html_links(
+        ["https://www.stcn.com/", "https://www.stcn.com/article/"],
+        lambda h: "stcn.com" in h,
+        yesterday(),
+        min_len=10
+    )
+
+
 # ──────────────────────────────────────────────
 # 中文源主题筛选
 # ──────────────────────────────────────────────
@@ -485,6 +495,7 @@ def main():
     sources = [
         ("人民网",      fetch_people,      False),
         ("参考消息",     fetch_cankaoxiaoxi, False),
+        ("证券时报",    fetch_stcn,        False),
         ("路透社",      fetch_reuters,     True),
         ("CNN",         fetch_cnn,         True),
         ("半岛电视台",   fetch_aljazeera,   True),
