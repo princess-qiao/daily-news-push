@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 每日国际新闻推送 - 只推送前一天的新闻
-来源: 路透社, CNN, 参考消息, 人民网, 半岛电视台, 环球网, 网易新闻
+来源: 新华网, Geopolitical Monitor, 寰球经济(ce.cn), 金十数据, Wired, CNN, 半岛电视台
 """
 
 import requests
@@ -78,25 +78,22 @@ def batch_translate(texts, source="en", target="zh-CN"):
 
 
 # ──────────────────────────────────────────────
-# 主题关键词（英文 → 用于 RSS 源预过滤）
+# 主题关键词
 # ──────────────────────────────────────────────
 
 EN_TOPIC_KEYWORDS = [
-    # 地缘政治
     "sanction", "war", "conflict", "ceasefire", "cease-fire", "cease fire",
     "negotiation", "diplomat", "diplomatic", "military", "NATO", "United Nations",
     "nuclear", "missile", "territory", "sovereignty", "summit", "border",
     "defense", "tension", "troop", "soldier", "attack", "strike", "killed",
     "force", "army", "navy", "fleet", "alliance", "treaty", "ambassador",
     "geopolitical", "crisis", "protest", "refugee", "rebel", "uprising",
-    "sanctions", "invasion", "annexation", "occupation", "cease-fire",
-    # Countries / regions
+    "invasion", "occupation",
     "Israel", "Hamas", "Gaza", "Ukraine", "Russia", "China", "Taiwan",
     "South China Sea", "Iran", "North Korea", "Middle East", "Palestine",
     "Syria", "Yemen", "Afghanistan", "Iraq", "Lebanon", "Hezbollah",
     "India", "Pakistan", "Japan", "South Korea", "Philippines",
     "Africa", "Europe", "Asia", "Pacific", "Arctic",
-    # 经济
     "economy", "economic", "trade", "tariff", "inflation", "interest rate",
     "stock market", "GDP", "central bank", "Federal Reserve", "federal reserve",
     "debt", "fiscal", "monetary policy", "recession", "unemployment",
@@ -104,17 +101,14 @@ EN_TOPIC_KEYWORDS = [
     "consumer", "price", "oil", "gold", "currency", "dollar", "yuan",
     "rate hike", "rate cut", "quantitative easing", "tightening",
     "bond", "yield", "commodity", "crude", "supply chain",
-    "infrastructure", "real estate", "bubble", "demand",
-    "global economy", "trade war", "sanctions",
-    # 政策
+    "infrastructure", "real estate", "bubble",
+    "global economy", "trade war",
     "policy", "legislation", "reform", "executive order", "government",
     "parliament", "election", "vote", "constitutional", "regulation",
     "president", "congress", "senate", "bill", "law", "administration",
     "cabinet", "democrat", "republican", "party", "prime minister",
-    "court", "ruling", "ban", "restriction", "sanctions",
-    "referendum", "impeach", "resign", "inauguration",
-    "immigration", "visa", "citizen", "human rights",
-    # 科技
+    "court", "ruling", "ban", "restriction", "referendum",
+    "impeach", "resign", "immigration", "human rights",
     "artificial intelligence", "AI", "machine learning", "chatgpt",
     "chip", "semiconductor", "quantum", "space", "satellite",
     "internet", "algorithm", "autonomous", "robot", "battery",
@@ -122,7 +116,7 @@ EN_TOPIC_KEYWORDS = [
     "rocket", "space station", "moon", "Mars", "probe",
     "Apple", "Google", "Microsoft", "Amazon", "Tesla", "Nvidia",
     "Intel", "Samsung", "TSMC", "Huawei", "Meta",
-    "operating system", "cloud", "data center", "cyber",
+    "cloud", "data center", "cyber", "cybersecurity",
     "climate", "carbon", "energy", "renewable", "solar", "nuclear",
     "vaccine", "drug", "gene", "medical", "biotech",
     "net-zero", "emission", "environment",
@@ -137,7 +131,7 @@ CN_TOPIC_KEYWORDS = [
     "地缘", "危机", "抗议", "政变", "难民",
     "关税", "贸易战", "升级", "紧张", "对抗", "分歧",
     "会谈", "对话", "武装", "部队", "袭击", "空袭", "爆炸",
-    "以色列", "巴勒斯坦", "哈马斯", "加沙", "真主党",
+    "以色列", "巴勒斯坦", "哈马斯", "加沙",
     "叙利亚", "利比亚", "也门", "阿富汗", "伊拉克",
     "印度", "巴基斯坦", "日本", "韩国", "菲律宾",
     "非洲", "拉丁美洲",
@@ -147,16 +141,14 @@ CN_TOPIC_KEYWORDS = [
     "进口", "产业", "制造", "消费", "物价",
     "经济衰退", "降息", "加息", "汇率", "外汇", "储备",
     "黄金", "石油", "原油", "大宗商品", "期货", "债券",
-    "房地产", "一带一路", "基建",
+    "房地产", "基建",
     "美国经济", "中国经济", "全球经济",
     "政策", "法案", "立法", "法规", "改革", "行政令", "政府",
     "议会", "选举", "投票", "宪法", "最高法院", "总统", "国会",
-    "参议院", "众议院", "修订", "新政", "白宫",
-    "国务院", "外交部", "商务部", "国防部",
     "内阁", "任期", "弹劾", "辞职", "上任",
-    "民主党", "共和党", "保守党", "工党", "党派",
+    "民主党", "共和党", "党派",
     "总理", "首相", "主席", "领导人", "政权",
-    "禁令", "限制", "封锁", "出口管制", "移民", "签证",
+    "禁令", "限制", "封锁", "出口管制",
     "AI", "人工智能", "大模型", "机器", "芯片", "半导体", "5G",
     "6G", "量子", "航天", "卫星", "互联网", "算法", "数据",
     "机器人", "新能源", "电池", "科技", "太空", "发射",
@@ -165,15 +157,12 @@ CN_TOPIC_KEYWORDS = [
     "华为", "苹果", "谷歌", "微软", "亚马逊", "特斯拉",
     "英伟达", "英特尔", "三星", "台积电",
     "操作系统", "云计算", "数据中心",
-    "区块链", "比特币",
-    "生物", "基因", "疫苗", "药物", "医疗",
-    "气候变化", "碳中和", "排放", "环保",
+    "气候变化", "碳中和", "排放",
     "核能", "风能", "太阳能", "可再生能源",
 ]
 
 
 def matches_english(text, keywords):
-    """检查英文文本是否包含关键词(不区分大小写)"""
     lower = text.lower()
     for kw in keywords:
         if kw.lower() in lower:
@@ -182,7 +171,6 @@ def matches_english(text, keywords):
 
 
 def matches_chinese(text, keywords):
-    """检查中文文本是否包含关键词"""
     for kw in keywords:
         if kw in text:
             return True
@@ -190,11 +178,10 @@ def matches_chinese(text, keywords):
 
 
 # ──────────────────────────────────────────────
-# RSS 国际源（先英文过滤，再翻译）
+# RSS 源（英文过滤 → 翻译 → 中文二次确认）
 # ──────────────────────────────────────────────
 
-def fetch_rss(urls, source_name, max_items=20):
-    """通用 RSS 抓取：先按英文关键词过滤，再翻译"""
+def fetch_rss(urls, source_name):
     target = yesterday().date()
     headers = {
         "User-Agent": (
@@ -239,12 +226,10 @@ def fetch_rss(urls, source_name, max_items=20):
         except Exception as e:
             print(f"  [{source_name}] 失败: {e}")
 
-    # 日期过滤
     strict_date = [i for i in raw_items if i["_date"] == target]
     candidates = strict_date if len(strict_date) >= 5 else raw_items
-    candidates = dedup_and_sort(candidates, max_items)
+    candidates = dedup_and_sort(candidates, 15)
 
-    # 英文关键词过滤（标题+摘要）
     matched = []
     for item in candidates:
         text = item["title"] + " " + item.get("summary", "")
@@ -255,7 +240,6 @@ def fetch_rss(urls, source_name, max_items=20):
         print(f"  [{source_name}] 英文关键词无匹配")
         return []
 
-    # 只翻译匹配的条目
     titles = [it["title"] for it in matched]
     translated = batch_translate(titles)
     for i, it in enumerate(matched):
@@ -271,7 +255,6 @@ def fetch_rss(urls, source_name, max_items=20):
                 it["summary"] = trans_sum[si]
                 si += 1
 
-    # 翻译后再用中文关键词二次过滤
     final = []
     for item in matched:
         text = item["title"] + " " + item.get("summary", "")
@@ -279,14 +262,17 @@ def fetch_rss(urls, source_name, max_items=20):
             final.append(item)
 
     print(f"  [{source_name}] 主题匹配 {len(final)} 条")
-    return final[:12]
+    return final[:6]
 
 
-def fetch_reuters():
-    return fetch_rss([
-        "https://www.reuters.com/tools/rss/worldNews",
-        "http://feeds.reuters.com/reuters/worldNews",
-    ], "路透社")
+def fetch_geopolitical():
+    """Geopolitical Monitor — 地缘政治分析"""
+    return fetch_rss(["https://www.geopoliticalmonitor.com/feed/"], "Geopolitical Monitor")
+
+
+def fetch_wired():
+    """Wired — 科技"""
+    return fetch_rss(["https://www.wired.com/feed/rss"], "Wired")
 
 
 def fetch_cnn():
@@ -304,7 +290,7 @@ def fetch_aljazeera():
 
 
 # ──────────────────────────────────────────────
-# 国内源（HTML 抓取）
+# HTML 源（中国）
 # ──────────────────────────────────────────────
 
 def match_date_in_url(url, target_date):
@@ -336,11 +322,9 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
             soup = BeautifulSoup(r.text, "html.parser")
 
             def extract_summary(link):
-                """从链接附近的元素提取摘要"""
                 for el in [link.parent, link.find_parent(["h1","h2","h3","h4","dt","li"])]:
                     if not el:
                         continue
-                    # 找相邻的 <p>, <div>, <span> 里的描述文字
                     for sib in el.find_next_siblings():
                         txt = sib.get_text(strip=True)
                         if 15 < len(txt) < 200:
@@ -359,8 +343,7 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
                         f"{url.rstrip('/')}/{href.lstrip('/')}"
                     )
                     if match_date_in_url(full_url, date_target):
-                        summary = extract_summary(link)
-                        items.append({"title": text, "url": full_url, "summary": summary})
+                        items.append({"title": text, "url": full_url, "summary": extract_summary(link)})
 
             if len(items) < 5:
                 for link in soup.find_all("a", href=True):
@@ -373,8 +356,7 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
                             f"https:{href}" if href.startswith("//") else
                             f"{url.rstrip('/')}/{href.lstrip('/')}"
                         )
-                        summary = extract_summary(link)
-                        items.append({"title": text, "url": full_url, "summary": summary})
+                        items.append({"title": text, "url": full_url, "summary": extract_summary(link)})
 
             if items:
                 return dedup_and_sort(items)
@@ -384,47 +366,33 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
     return []
 
 
-def fetch_cankaoxiaoxi():
+def fetch_xinhua():
+    """新华网国际新闻"""
     return fetch_html_links(
-        ["https://world.cankaoxiaoxi.com/", "https://www.cankaoxiaoxi.com/"],
-        lambda h: "cankaoxiaoxi.com" in h,
-        yesterday()
-    )
-
-
-def fetch_people():
-    return fetch_html_links(
-        ["http://world.people.com.cn/"],
-        lambda h: "world.people.com.cn" in h or h.startswith("/n1"),
-        yesterday(),
-        min_len=12
-    )
-
-
-def fetch_huanqiu():
-    return fetch_html_links(
-        ["https://world.huanqiu.com/"],
-        lambda h: "/article/" in h or "huanqiu.com" in h,
-        yesterday()
-    )
-
-
-def fetch_163():
-    return fetch_html_links(
-        ["https://news.163.com/world/"],
-        lambda h: "163.com" in h,
-        yesterday(),
-        min_len=12
-    )
-
-
-def fetch_stcn():
-    """证券时报头条"""
-    return fetch_html_links(
-        ["https://www.stcn.com/", "https://www.stcn.com/article/"],
-        lambda h: "stcn.com" in h,
+        ["http://www.xinhuanet.com/world/"],
+        lambda h: "xinhuanet.com" in h,
         yesterday(),
         min_len=10
+    )
+
+
+def fetch_globalecon():
+    """寰球经济 - 中国经济网国际频道"""
+    return fetch_html_links(
+        ["http://intl.ce.cn/", "http://intl.ce.cn/newm/hq/index_1.shtml"],
+        lambda h: "ce.cn" in h,
+        yesterday(),
+        min_len=10
+    )
+
+
+def fetch_jin10():
+    """金十数据 — 全球财经数据"""
+    return fetch_html_links(
+        ["https://www.jin10.com/"],
+        lambda h: "jin10.com" in h,
+        yesterday(),
+        min_len=8
     )
 
 
@@ -433,13 +401,12 @@ def fetch_stcn():
 # ──────────────────────────────────────────────
 
 def filter_chinese(items):
-    """对中文新闻做主题筛选"""
     matched = []
     for item in items:
         text = item["title"] + " " + item.get("summary", "")
         if matches_chinese(text, CN_TOPIC_KEYWORDS):
             matched.append(item)
-    return matched[:12]
+    return matched[:6]
 
 
 # ──────────────────────────────────────────────
@@ -493,17 +460,15 @@ def main():
     print(f"[INFO] 开始抓取前一日国际新闻...")
 
     sources = [
-        ("人民网",      fetch_people,      False),
-        ("参考消息",     fetch_cankaoxiaoxi, False),
-        ("证券时报",    fetch_stcn,        False),
-        ("路透社",      fetch_reuters,     True),
-        ("CNN",         fetch_cnn,         True),
-        ("半岛电视台",   fetch_aljazeera,   True),
-        ("环球网",      fetch_huanqiu,     False),
-        ("网易新闻",    fetch_163,         False),
+        ("新华网",       fetch_xinhua,       False),
+        ("Geopolitical", fetch_geopolitical, True),
+        ("寰球经济",     fetch_globalecon,   False),
+        ("金十数据",     fetch_jin10,        False),
+        ("Wired",       fetch_wired,        True),
+        ("CNN",         fetch_cnn,          True),
+        ("半岛电视台",    fetch_aljazeera,    True),
     ]
 
-    # 每源取2条，多源汇总
     aggregated = []
     seen_titles = set()
 
@@ -526,10 +491,10 @@ def main():
             key = item["title"].replace(" ", "")[:30]
             if key not in seen_titles:
                 seen_titles.add(key)
-                item["_source"] = name  # 标记来源
+                item["_source"] = name
                 aggregated.append(item)
                 count += 1
-                if count >= 2:
+                if count >= min(2, len(news)):
                     break
 
         print(f"[OK] {name} 取 {count} 条")
