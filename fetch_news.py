@@ -286,6 +286,55 @@ def format_message(news_list, source_name):
     return "\n".join(lines)
 
 
+# ──────────────────────────────────────────────
+# 主题筛选
+# ──────────────────────────────────────────────
+
+TOPIC_KEYWORDS = [
+    # 地缘政治
+    "制裁", "冲突", "战争", "停火", "谈判", "外交", "军事",
+    "北约", "欧盟", "联合国", "中美", "中俄", "台湾", "南海",
+    "朝鲜", "伊朗", "乌克兰", "俄罗斯", "边境", "主权", "峰会",
+    "导弹", "核武器", "国防", "领土", "联盟", "海域", "大使",
+    "撤军", "部署", "军演", "局势", "核问题", "中东", "亚太",
+    # 经济
+    "经济", "贸易", "关税", "通胀", "利率", "股市", "美元",
+    "人民币", "GDP", "央行", "美联储", "债务", "财政",
+    "货币政策", "供应链", "失业", "投资", "市场", "出口",
+    "进口", "产业", "制造业", "服务业", "消费", "物价",
+    "经济衰退", "经济制裁", "贸易战", "经济合作",
+    # 政策
+    "政策", "法案", "立法", "法规", "改革", "行政令", "政府",
+    "议会", "选举", "投票", "宪法", "最高法院", "总统", "国会",
+    "参议院", "众议院", "条例", "修订", "新政", "白宫",
+    "国务院", "外交部", "商务部", "国防部", "国务院",
+    # 科技
+    "AI", "人工智能", "芯片", "半导体", "5G", "量子", "航天",
+    "卫星", "互联网", "算法", "机器人", "新能源", "电池",
+    "科技", "太空", "发射", "自动驾驶", "数字化",
+    "大模型", "机器学习", "数据", "软件", "硬件", "网络",
+    "火箭", "空间站", "探月",
+]
+
+
+def topic_filter(items, min_match=5):
+    """按主题筛选并排序, 只保留匹配关键词的新闻"""
+    scored = []
+    for item in items:
+        title = item["title"].lower()
+        score = sum(1 for kw in TOPIC_KEYWORDS if kw.lower() in title)
+        if score > 0:
+            scored.append((score, item))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    result = [item for _, item in scored]
+
+    # 如果筛选后不够, 放宽限制(取原文前15条)
+    if len(result) < min_match:
+        return items[:15]
+    return result[:12]
+
+
 def main():
     send_key = os.environ.get("SENDKEY")
     if not send_key:
@@ -311,8 +360,15 @@ def main():
             print(f"[INFO] {name} 未获取到前一日新闻")
             continue
 
-        print(f"[OK] {name} 抓取到 {len(news)} 条新闻")
-        content = format_message(news, name)
+        print(f"[OK] {name} 抓取到 {len(news)} 条")
+        # 按主题筛选
+        filtered = topic_filter(news)
+        if len(filtered) < 3:
+            print(f"  [筛选] 主题匹配不足, 跳过此源")
+            continue
+
+        print(f"  [筛选] 主题匹配 {len(filtered)} 条")
+        content = format_message(filtered, name)
         send_to_wechat("🌍 国际新闻早报（昨日要闻）", content, send_key)
         return
 
