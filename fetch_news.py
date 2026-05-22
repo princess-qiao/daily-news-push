@@ -466,10 +466,10 @@ def main():
     print(f"[INFO] 开始抓取前一日国际新闻...")
 
     sources = [
-        ("路透社",      fetch_reuters,     True),   # RSS → 英文预过滤
-        ("CNN",         fetch_cnn,         True),
-        ("参考消息",     fetch_cankaoxiaoxi, False),
         ("人民网",      fetch_people,      False),
+        ("参考消息",     fetch_cankaoxiaoxi, False),
+        ("路透社",      fetch_reuters,     True),
+        ("CNN",         fetch_cnn,         True),
         ("半岛电视台",   fetch_aljazeera,   True),
         ("环球网",      fetch_huanqiu,     False),
         ("网易新闻",    fetch_163,         False),
