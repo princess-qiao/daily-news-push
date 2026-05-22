@@ -47,6 +47,35 @@ def dedup_and_sort(items, max_items=12):
 
 
 # ──────────────────────────────────────────────
+# 翻译 (英→中)
+# ──────────────────────────────────────────────
+
+def batch_translate(texts, source="en", target="zh-CN"):
+    """批量翻译英文标题为中文"""
+    if not texts:
+        return texts
+    try:
+        from deep_translator import GoogleTranslator
+        translator = GoogleTranslator(source=source, target=target)
+        # 合并翻译，用分隔符避免逐条调用
+        merged = "\n---\n".join(texts)
+        result = translator.translate(merged)
+        translated = [t.strip() for t in result.split("---")]
+        # 如果翻译结果数量不匹配，逐条翻译
+        if len(translated) != len(texts):
+            translated = []
+            for t in texts:
+                try:
+                    translated.append(translator.translate(t))
+                except:
+                    translated.append(t)
+        return translated
+    except Exception as e:
+        print(f"  [翻译] 失败: {e}")
+        return texts  # 翻译失败返回原文
+
+
+# ──────────────────────────────────────────────
 # RSS 国际源
 # ──────────────────────────────────────────────
 
@@ -90,7 +119,16 @@ def fetch_rss(urls, source_name, max_items=12):
 
     strict = [i for i in all_items if i["_date"] == target]
     result = strict if len(strict) >= 5 else all_items
-    return dedup_and_sort(result, max_items)
+    result = dedup_and_sort(result, max_items)
+
+    # 翻译英文标题为中文
+    titles = [it["title"] for it in result]
+    translated = batch_translate(titles)
+    for i, it in enumerate(result):
+        if i < len(translated) and translated[i] != it["title"]:
+            it["title"] = translated[i]
+
+    return result
 
 
 def fetch_reuters():
