@@ -367,10 +367,10 @@ def fetch_html_links(urls, domain_check, date_target, min_len=10):
 
 
 def fetch_xinhua():
-    """新华网国际新闻"""
+    """新华网国际新闻 (news.cn)"""
     return fetch_html_links(
         ["http://www.xinhuanet.com/world/"],
-        lambda h: "xinhuanet.com" in h,
+        lambda h: "news.cn" in h,
         yesterday(),
         min_len=10
     )
@@ -386,14 +386,68 @@ def fetch_globalecon():
     )
 
 
-def fetch_jin10():
-    """金十数据 — 全球财经数据"""
+def fetch_people():
+    """人民网国际新闻"""
     return fetch_html_links(
-        ["https://www.jin10.com/"],
-        lambda h: "jin10.com" in h,
+        ["http://world.people.com.cn/"],
+        lambda h: "people.com.cn" in h,
         yesterday(),
-        min_len=8
+        min_len=12
     )
+
+
+# ──────────────────────────────────────────────
+# 从文章页面抓取概要
+# ──────────────────────────────────────────────
+
+def fetch_article_summary(url):
+    """访问文章页面，提取首段作为概要"""
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        )
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=15)
+        r.encoding = "utf-8"
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(r.text, "html.parser")
+        # 找正文区域优先：排除导航、页脚等
+        for cls in ["rm_txt_con", "article-body", "article_content", "content",
+                     "page_content", "articleContent", "news-content", "art_con"]:
+            div = soup.find("div", class_=cls)
+            if div:
+                t = div.get_text(strip=True)
+                if len(t) > 30:
+                    return t[:150].replace("\n", " ").replace("\r", "")
+        # 后备：找第一个长文本的 p 标签
+        for tag in soup.find_all("p"):
+            t = tag.get_text(strip=True)
+            if len(t) > 50:
+                return t[:150].replace("\n", " ").replace("\r", "")
+        # 后备：找第一个有长文本的块级元素（跳过导航）
+        for tag in soup.find_all(["div", "span"]):
+            t = tag.get_text(strip=True)
+            if len(t) > 50 and "首页" not in t[:20]:
+                return t[:150].replace("\n", " ").replace("\r", "")
+        return ""
+    except Exception as e:
+        print(f"  [摘要抓取] 失败: {url[:50]} - {e}")
+        return ""
+
+
+def enrich_summaries(items):
+    """为所有中文源条目从文章页面抓取概要"""
+    if not items:
+        return items
+    for item in items:
+        url = item.get("url", "")
+        if url:
+            print(f"  [摘要] 抓取: {item['title'][:30]}...")
+            item["summary"] = fetch_article_summary(url)
+    return items
 
 
 # ──────────────────────────────────────────────
@@ -401,6 +455,7 @@ def fetch_jin10():
 # ──────────────────────────────────────────────
 
 def filter_chinese(items):
+    items = enrich_summaries(items)
     matched = []
     for item in items:
         text = item["title"] + " " + item.get("summary", "")
@@ -463,7 +518,7 @@ def main():
         ("新华网",       fetch_xinhua,       False),
         ("Geopolitical", fetch_geopolitical, True),
         ("寰球经济",     fetch_globalecon,   False),
-        ("金十数据",     fetch_jin10,        False),
+        ("人民网",       fetch_people,       False),
         ("Wired",       fetch_wired,        True),
         ("CNN",         fetch_cnn,          True),
         ("半岛电视台",    fetch_aljazeera,    True),
