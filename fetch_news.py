@@ -59,18 +59,26 @@ def batch_translate(texts, source="en", target="zh-CN"):
         return texts
     try:
         from deep_translator import GoogleTranslator
+        import concurrent.futures
         translator = GoogleTranslator(source=source, target=target)
         merged = "\n---\n".join(texts)
-        result = translator.translate(merged)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(translator.translate, merged)
+            result = future.result(timeout=15)
         translated = [t.strip() for t in result.split("---")]
         if len(translated) != len(texts):
             translated = []
             for t in texts:
                 try:
-                    translated.append(translator.translate(t))
+                    with concurrent.futures.ThreadPoolExecutor() as ex:
+                        f = ex.submit(translator.translate, t)
+                        translated.append(f.result(timeout=10))
                 except:
                     translated.append(t)
         return translated
+    except concurrent.futures.TimeoutError:
+        print(f"  [缈昏瘧] 瓒呮椂(15s)锛岃烦杩囩炕璇?)
+        return texts
     except Exception as e:
         print(f"  [缈昏瘧] 澶辫触: {e}")
         return texts
@@ -192,7 +200,7 @@ def fetch_rss(urls, source_name):
 
     # 灏濊瘯 RSS锛堝涓鐢?URL锛?    for url in urls:
         try:
-            r = requests.get(url, headers=headers, timeout=20)
+            r = requests.get(url, headers=headers, timeout=8)
             if r.status_code != 200:
                 continue
             feed = feedparser.parse(r.content)
@@ -222,7 +230,11 @@ def fetch_rss(urls, source_name):
                 print(f"  [{source_name}] RSS 鑾峰彇 {len(raw_items)} 鏉?)
                 break
         except Exception as e:
-            print(f"  [{source_name}] RSS 澶辫触({url[:50]}): {e}")
+            emsg = str(e)
+            if "10061" in emsg or "actively refused" in emsg:
+                print(f"  [{source_name}] 杩炴帴琚嫆({url[:50]})锛岃烦杩?)
+            else:
+                print(f"  [{source_name}] RSS 澶辫触({url[:50]}): {emsg[:60]}")
 
     # RSS 鍏ㄩ儴澶辫触 鈫?HTML 椤甸潰鎶撳彇鍥為€€
     if not raw_items:
@@ -232,10 +244,11 @@ def fetch_rss(urls, source_name):
             try:
                 base = url.split("/feed", 1)[0].rstrip("/")
                 if "rss" in url or "xml" in url:
-                    base = "/".join(url.split("/")[:3])  # 鍙栧煙鍚嶆牴
-                r = requests.get(base, headers=headers, timeout=20)
+                    base = "/".join(url.split("/")[:3])
+                r = requests.get(base, headers=headers, timeout=5)
                 r.encoding = "utf-8"
                 soup = BeautifulSoup(r.text, "html.parser")
+                count = 0
                 for link in soup.find_all("a", href=True):
                     href = link["href"]
                     text = link.get_text(strip=True)
@@ -249,11 +262,18 @@ def fetch_rss(urls, source_name):
                         "title": text, "url": full_url, "summary": "",
                         "_date": None
                     })
+                    count += 1
+                    if count >= 30:
+                        break
                 if raw_items:
                     print(f"  [{source_name}] HTML 鎶撳彇 {len(raw_items)} 鏉?)
                     break
             except Exception as e:
-                print(f"  [{source_name}] HTML 鍥為€€涔熷け璐?{url[:50]}): {e}")
+                emsg = str(e)
+                if "10061" in emsg or "actively refused" in emsg:
+                    print(f"  [{source_name}] HTML 杩炴帴琚嫆锛岃烦杩?)
+                    break  # 鏁翠釜鍩熷悕閮借澧欙紝涓嶅啀璇曞叾浠?URL
+                print(f"  [{source_name}] HTML 鍥為€€澶辫触: {emsg[:60]}")
                 continue
 
     if not raw_items:
