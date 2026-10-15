@@ -217,14 +217,7 @@ def matches_chinese(text, keywords):
 # ──────────────────────────────────────────────
 
 def fetch_rss(urls, source_name):
-    target = yesterday().date()
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        )
-    }
+    headers = UA_HEADERS
     raw_items = []
 
     for url in urls:
@@ -261,6 +254,12 @@ def fetch_rss(urls, source_name):
         except Exception as e:
             print(f"  [{source_name}] 失败: {e}")
 
+    return process_english_items(raw_items, source_name)
+
+
+def process_english_items(raw_items, source_name):
+    """英文源公共流水线：日期筛选 → 英文关键词 → 翻译 → 中文二次确认。"""
+    target = yesterday().date()
     strict_date = [i for i in raw_items if i["_date"] == target]
     candidates = strict_date if len(strict_date) >= 5 else raw_items
     candidates = dedup_and_sort(candidates, 15)
@@ -300,6 +299,88 @@ def fetch_rss(urls, source_name):
     return final[:6]
 
 
+UA_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+}
+
+
+def _parse_news_sitemap(content):
+    """从 Google News sitemap 抽 (标题, 链接, 日期)；用正则绕开命名空间。"""
+    text = content.decode("utf-8", "ignore") if isinstance(content, bytes) else content
+    items = []
+    for block in re.findall(r"<url>(.*?)</url>", text, re.S):
+        loc = re.search(r"<loc>(.*?)</loc>", block, re.S)
+        title = re.search(r"<news:title>(.*?)</news:title>", block, re.S)
+        pdate = re.search(r"<news:publication_date>(.*?)</news:publication_date>", block, re.S)
+        if not (loc and title):
+            continue
+        d = None
+        if pdate:
+            try:
+                d = datetime.fromisoformat(
+                    pdate.group(1).strip().replace("Z", "+00:00")
+                ).date()
+            except Exception:
+                d = None
+        items.append({
+            "title": strip_html(title.group(1)).strip(),
+            "url": loc.group(1).strip(),
+            "summary": "",
+            "_date": d,
+        })
+    return items
+
+
+def fetch_news_sitemap(urls, source_name):
+    """按顺序试 news sitemap；只含最近几天条目，天然避开旧闻。"""
+    for url in urls:
+        try:
+            r = requests.get(url, headers=UA_HEADERS, timeout=20)
+            if r.status_code != 200:
+                print(f"  [{source_name}] sitemap HTTP {r.status_code}: {url}")
+                continue
+            items = _parse_news_sitemap(r.content)
+            if items:
+                print(f"  [{source_name}] sitemap 获取 {len(items)} 条 ({url})")
+                return items
+            print(f"  [{source_name}] sitemap 解析为空: {url}")
+        except Exception as e:
+            print(f"  [{source_name}] sitemap 失败: {e}")
+    return []
+
+
+def fetch_cnn_home():
+    """抓 www.cnn.com 首页文章链接（URL 自带 /YYYY/MM/DD/，可精确判日期）。"""
+    from bs4 import BeautifulSoup
+    raw = []
+    try:
+        r = requests.get("https://www.cnn.com/", headers=UA_HEADERS, timeout=20)
+        r.encoding = "utf-8"
+        soup = BeautifulSoup(r.text, "html.parser")
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            text = a.get_text(strip=True)
+            if not text or len(text) < 15:
+                continue
+            m = re.search(r"/(20\d\d)/(\d\d)/(\d\d)/", href)
+            if not m or "cnn.com" not in href:
+                continue
+            full = href if href.startswith("http") else "https://www.cnn.com" + href
+            try:
+                d = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
+            except Exception:
+                d = None
+            raw.append({"title": text, "url": full, "summary": "", "_date": d})
+        print(f"  [CNN] 首页获取 {len(raw)} 条")
+    except Exception as e:
+        print(f"  [CNN] 首页抓取失败: {e}")
+    return raw
+
+
 def fetch_geopolitical():
     """The Diplomat — 亚太地缘政治分析"""
     return fetch_rss(["https://thediplomat.com/feed/"], "The Diplomat")
@@ -311,10 +392,15 @@ def fetch_wired():
 
 
 def fetch_cnn():
-    return fetch_rss([
-        "http://rss.cnn.com/rss/edition_world.rss",
-        "http://rss.cnn.com/rss/edition.rss",
+    """CNN — 官方 RSS 2024 年起停更，改用 www.cnn.com 的 news sitemap / 首页。"""
+    items = fetch_news_sitemap([
+        "https://www.cnn.com/sitemap/news.xml",
+        "https://www.cnn.com/sitemaps/cnn/news.xml",
+        "https://edition.cnn.com/sitemaps/cnn/news.xml",
     ], "CNN")
+    if not items:
+        items = fetch_cnn_home()
+    return process_english_items(items, "CNN")
 
 
 def fetch_aljazeera():
