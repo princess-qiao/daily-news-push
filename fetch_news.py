@@ -56,32 +56,59 @@ def dedup_and_sort(items, max_items=15):
 # 翻译
 # ──────────────────────────────────────────────
 
+def _tr_google(text, source, tl):
+    """Google 免费端点 gtx。"""
+    resp = requests.get(
+        "https://translate.googleapis.com/translate_a/single",
+        params={"client": "gtx", "sl": source, "tl": tl, "dt": "t", "q": text},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return "".join(seg[0] for seg in data[0] if seg and seg[0])
+
+
+def _tr_mymemory(text, source, tl):
+    """MyMemory 免费端点（按天限额，按出口 IP 计，不共享秒级限流）。"""
+    resp = requests.get(
+        "https://api.mymemory.translated.net/get",
+        params={"q": text[:480], "langpair": f"{source}|{tl}"},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    out = resp.json()["responseData"]["translatedText"]
+    # 命中缓存/失败时 mymemory 会回吐原文或返回大写告警
+    if not out or out.strip().upper().startswith("MYMEMORY WARNING"):
+        raise ValueError("mymemory empty/warning")
+    return out
+
+
 def batch_translate(texts, source="en", target="zh-CN"):
-    # 逐条翻译，并控制速率。Google 免费接口限制 5 请求/秒，
-    # 之前一瞬间打几十个请求会被限流，失败条目会静默保留英文原文。
+    # translate.google.com/m（deep_translator 默认）在 GitHub Actions 的共享
+    # 出口 IP 上被 Google 硬限流：每条请求、包括第一条，都直接返回
+    # "5 requests per second"。限速/重试无效，因为该 IP 的秒级配额被别人占满。
+    # 策略：先试 gtx 端点，失败则退到 MyMemory。
     if not texts:
         return texts
-    try:
-        from deep_translator import GoogleTranslator
-        translator = GoogleTranslator(source=source, target=target)
-    except Exception as e:
-        print(f"  [翻译] 初始化失败: {e}")
-        return texts
-
+    tl = "zh-CN" if target.replace("_", "-").lower().startswith("zh") else target
     out = []
     for t in texts:
+        if not t:
+            out.append(t)
+            continue
         result = None
-        for attempt in range(3):
+        for backend in (_tr_google, _tr_mymemory):
             try:
-                result = translator.translate(t)
-                break
+                result = backend(t, source, tl)
+                if result:
+                    break
             except Exception as e:
-                if attempt == 2:
-                    print(f"  [翻译] 单条失败(已重试3次): {e}")
-                else:
-                    time.sleep(2)
+                print(f"  [翻译] {backend.__name__} 失败: {e}")
+                time.sleep(1)
         out.append(result.strip() if result else t)
-        time.sleep(0.4)  # 保持在 5 请求/秒以下
+        time.sleep(0.3)
     return out
 
 
@@ -189,7 +216,7 @@ def matches_chinese(text, keywords):
 # RSS 源（英文过滤 → 翻译 → 中文二次确认）
 # ──────────────────────────────────────────────
 
-def fetch_rss(urls, source_name):
+def fetch_rss(urls, source_name, translate=True):
     target = yesterday().date()
     headers = {
         "User-Agent": (
@@ -248,20 +275,21 @@ def fetch_rss(urls, source_name):
         print(f"  [{source_name}] 英文关键词无匹配")
         return []
 
-    titles = [it["title"] for it in matched]
-    translated = batch_translate(titles)
-    for i, it in enumerate(matched):
-        if i < len(translated):
-            it["title"] = translated[i]
+    if translate:
+        titles = [it["title"] for it in matched]
+        translated = batch_translate(titles)
+        for i, it in enumerate(matched):
+            if i < len(translated):
+                it["title"] = translated[i]
 
-    summaries = [it["summary"] for it in matched if it["summary"]]
-    if summaries:
-        trans_sum = batch_translate(summaries)
-        si = 0
-        for it in matched:
-            if it["summary"] and si < len(trans_sum):
-                it["summary"] = trans_sum[si]
-                si += 1
+        summaries = [it["summary"] for it in matched if it["summary"]]
+        if summaries:
+            trans_sum = batch_translate(summaries)
+            si = 0
+            for it in matched:
+                if it["summary"] and si < len(trans_sum):
+                    it["summary"] = trans_sum[si]
+                    si += 1
 
     final = []
     for item in matched:
@@ -275,7 +303,7 @@ def fetch_rss(urls, source_name):
 
 def fetch_geopolitical():
     """The Diplomat — 亚太地缘政治分析"""
-    return fetch_rss(["https://thediplomat.com/feed/"], "The Diplomat")
+    return fetch_rss(["https://thediplomat.com/feed/"], "The Diplomat", translate=False)
 
 
 def fetch_wired():
@@ -287,7 +315,7 @@ def fetch_cnn():
     return fetch_rss([
         "http://rss.cnn.com/rss/edition_world.rss",
         "http://rss.cnn.com/rss/edition.rss",
-    ], "CNN")
+    ], "CNN", translate=False)
 
 
 def fetch_aljazeera():
