@@ -392,7 +392,8 @@ def fetch_wired():
 
 
 def fetch_cnn():
-    """CNN — 官方 RSS 2024 年起停更，改用 www.cnn.com 的 news sitemap / 首页。"""
+    """CNN — 官方 RSS 已停更，改用 www.cnn.com 的 news sitemap；只取独家
+    （CNN 用标题前缀 "Exclusive:" 标独家，其余源照常）。"""
     items = fetch_news_sitemap([
         "https://www.cnn.com/sitemap/news.xml",
         "https://www.cnn.com/sitemaps/cnn/news.xml",
@@ -400,7 +401,9 @@ def fetch_cnn():
     ], "CNN")
     if not items:
         items = fetch_cnn_home()
-    return process_english_items(items, "CNN")
+    exclusives = [it for it in items if "exclusive" in it["title"].lower()]
+    print(f"  [CNN] 独家 {len(exclusives)}/{len(items)} 条")
+    return process_english_items(exclusives, "CNN")
 
 
 def fetch_aljazeera():
