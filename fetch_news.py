@@ -216,7 +216,7 @@ def matches_chinese(text, keywords):
 # RSS 源（英文过滤 → 翻译 → 中文二次确认）
 # ──────────────────────────────────────────────
 
-def fetch_rss(urls, source_name, translate=True):
+def fetch_rss(urls, source_name):
     target = yesterday().date()
     headers = {
         "User-Agent": (
@@ -275,21 +275,20 @@ def fetch_rss(urls, source_name, translate=True):
         print(f"  [{source_name}] 英文关键词无匹配")
         return []
 
-    if translate:
-        titles = [it["title"] for it in matched]
-        translated = batch_translate(titles)
-        for i, it in enumerate(matched):
-            if i < len(translated):
-                it["title"] = translated[i]
+    titles = [it["title"] for it in matched]
+    translated = batch_translate(titles)
+    for i, it in enumerate(matched):
+        if i < len(translated):
+            it["title"] = translated[i]
 
-        summaries = [it["summary"] for it in matched if it["summary"]]
-        if summaries:
-            trans_sum = batch_translate(summaries)
-            si = 0
-            for it in matched:
-                if it["summary"] and si < len(trans_sum):
-                    it["summary"] = trans_sum[si]
-                    si += 1
+    summaries = [it["summary"] for it in matched if it["summary"]]
+    if summaries:
+        trans_sum = batch_translate(summaries)
+        si = 0
+        for it in matched:
+            if it["summary"] and si < len(trans_sum):
+                it["summary"] = trans_sum[si]
+                si += 1
 
     final = []
     for item in matched:
@@ -303,7 +302,7 @@ def fetch_rss(urls, source_name, translate=True):
 
 def fetch_geopolitical():
     """The Diplomat — 亚太地缘政治分析"""
-    return fetch_rss(["https://thediplomat.com/feed/"], "The Diplomat", translate=False)
+    return fetch_rss(["https://thediplomat.com/feed/"], "The Diplomat")
 
 
 def fetch_wired():
@@ -315,7 +314,7 @@ def fetch_cnn():
     return fetch_rss([
         "http://rss.cnn.com/rss/edition_world.rss",
         "http://rss.cnn.com/rss/edition.rss",
-    ], "CNN", translate=False)
+    ], "CNN")
 
 
 def fetch_aljazeera():
