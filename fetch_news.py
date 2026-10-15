@@ -7,6 +7,7 @@
 import requests
 import os
 import sys
+import time
 import re
 import feedparser
 from datetime import datetime, timedelta
@@ -56,25 +57,32 @@ def dedup_and_sort(items, max_items=15):
 # ──────────────────────────────────────────────
 
 def batch_translate(texts, source="en", target="zh-CN"):
+    # 逐条翻译，并控制速率。Google 免费接口限制 5 请求/秒，
+    # 之前一瞬间打几十个请求会被限流，失败条目会静默保留英文原文。
     if not texts:
         return texts
     try:
         from deep_translator import GoogleTranslator
         translator = GoogleTranslator(source=source, target=target)
-        merged = "\n---\n".join(texts)
-        result = translator.translate(merged)
-        translated = [t.strip() for t in result.split("---")]
-        if len(translated) != len(texts):
-            translated = []
-            for t in texts:
-                try:
-                    translated.append(translator.translate(t))
-                except:
-                    translated.append(t)
-        return translated
     except Exception as e:
-        print(f"  [翻译] 失败: {e}")
+        print(f"  [翻译] 初始化失败: {e}")
         return texts
+
+    out = []
+    for t in texts:
+        result = None
+        for attempt in range(3):
+            try:
+                result = translator.translate(t)
+                break
+            except Exception as e:
+                if attempt == 2:
+                    print(f"  [翻译] 单条失败(已重试3次): {e}")
+                else:
+                    time.sleep(2)
+        out.append(result.strip() if result else t)
+        time.sleep(0.4)  # 保持在 5 请求/秒以下
+    return out
 
 
 # ──────────────────────────────────────────────
